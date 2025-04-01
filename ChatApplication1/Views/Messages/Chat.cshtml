@@ -1,0 +1,242 @@
+﻿@using ChatApplication1.ViewModels.MessageViewModels
+@model ChatViewModel
+
+
+
+<style>
+	.receiver-info{
+		display: flex;
+		align-items: center;
+		margin-bottom: 20px;
+		padding: 20px;
+		background-color: #e6e6e6;
+	}
+
+	.receiver-info .first-latter{
+		width: 60px;
+		height: 60px;
+		background-color: darkblue;
+		border-radius: 50%;
+		text-align: center;
+		font-size: 30px;
+		color: white;
+	}
+
+	.message-box{
+		display: flex;
+		flex-direction: column;
+		background-color: #e6e6e6;
+		height: 75vh;
+		overflow: auto;
+		padding: 20px;
+	}
+
+	.message{
+		padding: 20px;
+		background-color: #e6e6e6;
+		color: white;
+		margin-bottom: 10px;
+		border-radius: 30px;
+		max-width: 80%;
+	}
+
+	.sent-message {
+		align-self: start;
+		background-color: darkblue;
+	}
+
+	.received-message {
+		align-self: end;
+		background-color: darkred;
+	}
+
+	.send-message-box {
+		display: flex;
+		margin-top: 20px;
+	}
+
+	.message-field {
+		flex: 1;
+		padding: 10px;
+		border: none;
+		border-radius: 0;
+	}
+
+		.message-field:focus {
+			outline: none;
+		}
+
+	.send-btn {
+		border-radius: 0;
+	}
+		.file-upload:hover {
+			background-color: #5a6268; /* Darker shade on hover */
+		}
+
+		.file-upload:active {
+			background-color: #4e555b; /* Slightly darker when clicked */
+		}
+</style>
+
+
+
+<div class="message-wrap">
+
+	<div class="receiver-info">
+		<div class="first-latter">
+			@Model.ReceicerUserName.Substring(0, 1).ToUpper()
+		</div>
+		<h3>@Model.ReceicerUserName</h3>
+	</div>
+
+	<div class="message-box">
+
+		@foreach (var item in Model.Messages)
+		{
+			if (item.IsCurrentUserSentMessage)
+			{
+				<div class="message sent-message">
+					<p>@item.Text</p>
+					<span>@item.Date @item.Time</span>
+				</div>
+			}
+			else
+			{
+				<div class="message received-message">
+					<p>@item.Text</p>
+					<span>@item.Date @item.Time</span>
+				</div>
+			}
+		}	
+	</div>
+	<div class="send-message-box">
+		<textarea rows="4" class="message-field" placeholder="Type your message"></textarea>
+		<label class="file-upload btn btn-primary">
+			🔗 Attach
+			<input type="file" id="documentUpload" class="file-input" accept=".pdf,.doc,.docx,.txt,.jpg,.png" hidden>
+		</label>
+		<button class="send-btn btn btn-dark">Send</button>
+	</div>
+</div>
+
+
+@section Scripts {
+	<script>
+		var connection = new signalR.HubConnectionBuilder().withUrl("/chatHub").build();
+
+		connection.start().then(function(){
+			console.log("Connected");
+		}).catch(function(err){
+			return console.error(err.toString());
+		});
+
+		$(".send-btn").click(function(){
+			var receiverId = "@Model.ReceiverId";
+			var message = $(".message-field").val();
+			if (message.trim() !== ""){
+				connection.invoke("SendMessage", receiverId, message).catch(function(err){
+					console.assert(err.toString());
+				});
+				$(".message-field").val("").focus();
+			}
+		});
+
+		// $("#documentUpload").change(function () {
+
+						
+		// 	const fileInput = document.getElementById('documentUpload');
+		// 	debugger;
+		// 	console.log(fileInput);
+
+		// 	fileInput.addEventListener('change', (event) => {
+		// 	  const file = event.target.files[0];
+		// 	  console.log(file);
+		// 	  if (file) {
+		// 		const reader = new FileReader();
+
+	
+		// 		reader.readAsArrayBuffer(file);
+
+
+		// 		reader.onload = (event) => {
+		// 		  const fileData = new Uint8Array(event.target.result);
+		// 		  console.log(fileData);
+				
+
+		// 			connection.invoke("ReceiveFile", file.name, file.name).catch(function(err){
+		// 			console.assert(err.toString());
+		// 		});
+
+		// 		};
+		// 	  }
+		// 	});
+		// });
+
+		$("#documentUpload").change(function () {
+			const fileInput = document.getElementById("documentUpload");
+			const file = fileInput.files[0];
+
+			if (!file) return;
+
+			const reader = new FileReader();
+
+			reader.onload = function (event) {
+				const base64Data = event.target.result.split(",")[1]; // Extract base64 content
+				const fileName = file.name;
+				const fileType = file.type;
+
+				var receiverId = "@Model.ReceiverId";
+
+				// Send file using SignalR
+				connection.invoke("SendFile", receiverId, fileName, fileType, base64Data)
+					.catch(function (err) {
+						console.error("Error sending file:", err.toString());
+					});
+
+				console.log("File sent:", fileName);
+			};
+
+			reader.readAsDataURL(file); // Read file as base64
+		});
+
+		connection.on("ReceiveFile", function (fileId, fileName, fileType, base64Data, senderId) {
+			var fileUrl = `data:${fileType};base64,${base64Data}`;
+			var messageClass = senderId === "@Model.CurrentUserId" ? "sent-message" : "received-message";
+
+			var msg = `<div class="message ${messageClass}">`;
+
+			if (fileType.startsWith("image/")) {
+				msg += `<img src="${fileUrl}" alt="${fileName}" style="max-width:200px; border-radius:5px;">`;
+			} else {
+				msg += `<p><a href="${fileUrl}" download="${fileName}">📄 ${fileName}</a></p>`;
+			}
+
+			msg += `<span>${new Date().toLocaleTimeString()}</span></div>`;
+
+			$(".message-box").append(msg);
+			$(".message-box").scrollTop($(".message-box")[0].scrollHeight);
+			console.log("📥 Received file:", fileName);
+		});
+
+		connection.on("ReceiveMessage", function (message, date, time, senderId, isFile = false, fileName = "") {
+			var messageClass = senderId === "@Model.CurrentUserId" ? "sent-message" : "received-message";
+
+			var msg = `<div class="message ${messageClass}">`;
+
+			if (isFile) {
+				msg += `<p>📎 File sent: ${fileName}</p>`;
+			} else {
+				msg += `<p>${message}</p>`;
+			}
+
+			msg += `<span>${date} ${time}</span></div>`;
+
+			$(".message-box").append(msg);
+			$(".message-box").scrollTop($(".message-box")[0].scrollHeight);
+		});
+
+		$(function(){
+			$(".message-box").scrollTop($(".message-box")[0].scrollHeight);
+		});
+	</script>
+}

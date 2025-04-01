@@ -1,0 +1,71 @@
+﻿@using ChatApplication1.ViewModels.MessageViewModels
+@model IEnumerable<MessagesUsersListViewModel>
+
+
+
+<style>
+
+	.users{
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+	}
+
+	.users{
+		border: 1px solid #e6e6e6;
+		padding: 15px;
+		width: 47%;
+		margin-bottom: 10px;
+	}
+
+	.first-latter{
+		width: 100px;
+		height: 100px;
+		background-color: darkblue;
+		border-radius: 50%;
+		text-align: center;
+		font-size: 50px;
+		color: white;
+	}
+
+	.user-info-wrap {
+		align-items: center;
+	}
+
+	.user-info {
+		text-align: center;
+	}
+
+	.chat-btn-wrap {
+		align-content: center;
+	}
+</style>
+
+<div class="users">
+
+	@foreach(var item in Model)
+	{
+		<div class="user">
+			<div class="row">
+
+				<div class="col-lg-3">
+					<div class="first-latter">
+						@item.UserName.Substring(0, 1).ToUpper()
+					</div>
+				</div>
+
+				<div class="col-lg-6 user-info-wrap">
+					<div class="user-info">
+						<h3 class="user-name">@item.UserName</h3>
+						<p class="last-message">@item.LastMessage</p>
+					</div>
+				</div>
+
+				<div class="col-lg-2 chat-btn-wrap">
+					<a class="chat-btn btn btn-secondary" href="/Messages/Chat?selectedUserId=@item.Id">Chat</a>
+				</div>
+			</div>
+
+		</div>
+	}
+</div>
